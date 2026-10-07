@@ -43,3 +43,11 @@ cmake -B build
 cmake --build build
 build\bin\cg.exe
 ```
+
+---
+
+# 5-апта: индекс буфері (EBO)
+
+Төртбұрыш 4 вершина мен 6 индекспен (`{0,1,3, 1,2,3}`) салынады, `glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0)`.
+EBO VAO байланған кезде жасалады және `GL_ELEMENT_ARRAY_BUFFER` босатылмайды.
+3-тапсырма: бір VAO, екі `glUniform2f` + `glDrawElements` — екінші төртбұрыш орбитаның қарсы жағында.

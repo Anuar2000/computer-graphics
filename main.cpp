@@ -6,7 +6,7 @@
 //
 //      git add . && git commit -m "week02" && git tag week02 && git push --tags
 //
-//  Қазіргі күйі: 4-АПТА — uniform, уақыт, delta time
+//  Қазіргі күйі: 5-АПТА — индекс буфері (EBO)
 // =====================================================================
 
 #include <glad/gl.h>      // МІНДЕТТІ: glad әрқашан GLFW-дан БҰРЫН
@@ -169,39 +169,47 @@ int main() {
     // === 2-АПТА: үшбұрыштың деректері мен буферлері ===
 
     // Вершинные данные в NDC (-1 .. 1): x y z  r g b.
-    // 2-апта, задание 1: два треугольника в одном массиве (6 вершин).
-    // 4-апта: фигура компактная и стоит вокруг центра, чтобы орбита
-    // (радиус до 0.6) + размер (макс. 0.3 * uScale 1.0) не вылезала за экран.
+    // 5-апта: төртбұрыш = 4 вершина + 6 индекс (6 вершинаның орнына).
+    // 0.3f: орбита радиусы (макс. 0.6) + 0.3 * uScale (макс. 1.0) < 1.0 — NDC-ден шықпайды.
     float vertices[] = {
-        // первый треугольник (слева от центра)
-        -0.30f, -0.20f, 0.0f,   0.1f, 0.9f, 0.7f,
-        -0.05f, -0.20f, 0.0f,   0.1f, 0.7f, 0.9f,
-        -0.175f, 0.20f, 0.0f,   0.3f, 1.0f, 0.5f,
-        // второй треугольник (справа от центра)
-         0.05f, -0.20f, 0.0f,   1.0f, 0.6f, 0.2f,
-         0.30f, -0.20f, 0.0f,   1.0f, 0.3f, 0.5f,
-         0.175f, 0.20f, 0.0f,   1.0f, 0.9f, 0.3f
+        // позиция          // түс
+         0.3f,  0.3f, 0.0f,  1.0f, 0.0f, 0.0f,   // 0 — оң жоғарғы
+         0.3f, -0.3f, 0.0f,  0.0f, 1.0f, 0.0f,   // 1 — оң төменгі
+        -0.3f, -0.3f, 0.0f,  0.0f, 0.0f, 1.0f,   // 2 — сол төменгі
+        -0.3f,  0.3f, 0.0f,  1.0f, 1.0f, 0.0f    // 3 — сол жоғарғы
     };
-    const int vertexCount   = 6;
-    const int triangleCount = vertexCount / 3;
 
-    unsigned int vao, vbo;
+    // Индекстер вершина НӨМІРЛЕРІН көрсетеді. Диагональ 1–3, барлығы сағат тіліне қарсы.
+    unsigned int indices[] = {
+        0, 1, 3,    // бірінші үшбұрыш
+        1, 2, 3     // екінші үшбұрыш
+    };
+    const int indexCount    = 6;
+    const int triangleCount = indexCount / 3;
+
+    unsigned int vao, vbo, ebo;
     glGenVertexArrays(1, &vao);
     glGenBuffers(1, &vbo);
+    glGenBuffers(1, &ebo);
 
-    glBindVertexArray(vao);                                  // VAO байлаймыз
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);                      // VBO байлаймыз
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices),          // деректі GPU-ға
-                 vertices, GL_STATIC_DRAW);
+    glBindVertexArray(vao);                                  // VAO бірінші
 
-    // location=0: позиция (3 float), қадам 6 float, ығысу 0
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);              // 5-апта: EBO VAO байланған кезде
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    const int STRIDE = 6 * sizeof(float);
+    // location=0: позиция (3 float), ығысу 0
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, STRIDE, (void*)0);
     glEnableVertexAttribArray(0);
-    // location=1: түс (3 float), қадам 6 float, ығысу 3 float
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    // location=1: түс (3 float), ығысу 3 float
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, STRIDE, (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
     glBindVertexArray(0);
+    // НАЗАР: GL_ELEMENT_ARRAY_BUFFER-ды босатпаймыз (VAO ішіндегі EBO жоғалып кетпесін)
 
     // === 3-АПТА: (уақытша) шейдерлер компиляциясы ===
 
@@ -257,18 +265,27 @@ int main() {
 
         // === 2-АПТА: сызу командасы ===
         glUseProgram(shader);   // МІНДЕТТІ, әрі БІРІНШІ: uniform орнатудан бұрын
-        glUniform2f(locOffset, std::cos(g_angle) * g_radius, std::sin(g_angle) * g_radius);
         // Пульсация: sin (-1..1) -> (0..1) -> 0.5..1.0
         float scale = 0.75f + 0.25f * std::sin(t * 3.0f);
         glUniform1f(locScale, scale);
         glBindVertexArray(vao);
-        if (g_lineLoopMode) {
-            // GL_LINE_LOOP замыкает ВСЕ вершины в один контур, поэтому
-            // рисуем каждый треугольник отдельным вызовом (по 3 вершины).
-            for (int i = 0; i < triangleCount; ++i)
-                glDrawArrays(GL_LINE_LOOP, i * 3, 3);
-        } else {
-            glDrawArrays(GL_TRIANGLES, 0, vertexCount);
+
+        // 5-апта, 3-тапсырма: бір VAO, екі glUniform2f + glDrawElements.
+        // Екінші төртбұрыш орбитаның қарсы жағында (бұрыш + PI).
+        for (int k = 0; k < 2; ++k) {
+            float a = g_angle + k * 3.14159265f;
+            glUniform2f(locOffset, std::cos(a) * g_radius, std::sin(a) * g_radius);
+
+            if (g_lineLoopMode) {
+                // GL_LINE_LOOP замыкает ВСЕ индексы в один контур, поэтому
+                // рисуем каждый треугольник отдельным вызовом (по 3 индекса).
+                for (int i = 0; i < triangleCount; ++i)
+                    glDrawElements(GL_LINE_LOOP, 3, GL_UNSIGNED_INT,
+                                   (void*)(i * 3 * sizeof(unsigned int)));
+            } else {
+                // 6 — ИНДЕКС саны (вершина саны емес)
+                glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
+            }
         }
 
         glfwSwapBuffers(window);   // дайын кадрды экранға шығару
@@ -290,6 +307,7 @@ int main() {
     // === 2-АПТА: буферлер өшіріледі ===
     glDeleteVertexArrays(1, &vao);
     glDeleteBuffers(1, &vbo);
+    glDeleteBuffers(1, &ebo);
     glDeleteProgram(shader);
 
     glfwTerminate();

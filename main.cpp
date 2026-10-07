@@ -6,7 +6,7 @@
 //
 //      git add . && git commit -m "week02" && git tag week02 && git push --tags
 //
-//  Қазіргі күйі: 2-АПТА — үшбұрыш (VBO + VAO)
+//  Қазіргі күйі: 4-АПТА — uniform, уақыт, delta time
 // =====================================================================
 
 #include <glad/gl.h>      // МІНДЕТТІ: glad әрқашан GLFW-дан БҰРЫН
@@ -14,7 +14,6 @@
 
 #include <cmath>
 #include <iostream>
-#include <vector>
 
 // ---------------------------------------------------------------------
 //  Баптаулар
@@ -22,33 +21,43 @@
 const int WIDTH  = 1280;   // 1-апта, задание 1: было 800
 const int HEIGHT = 720;    // 1-апта, задание 1: было 600
 
-// Пирамида из треугольников (как на фото): N рядов, закрашены только
-// "верхние" (вершиной вверх) треугольники, перевёрнутые остаются пустыми.
-int         ROWS       = 5;   // число рядов, спрашиваем у пользователя при запуске
-const int   MAX_ROWS   = 200; // верхняя граница, чтобы не завесить программу
-const float FILL_COLOR[3] = {0.1f, 0.9f, 0.7f};   // цвет заливки (на фото - чёрный: {0,0,0})
-const float LINE_COLOR[3] = {1.0f, 1.0f, 1.0f};   // цвет линий сетки
-
 // Глобальные переменные состояния (1-апта, задание 3; 2-апта, задания 2-3)
 bool g_whiteBackground = false;  // Пробел зажат -> белый фон
 bool g_lineLoopMode    = false;  // клавиша 2: GL_LINE_LOOP вместо GL_TRIANGLES
-bool g_wireframe       = false;  // клавиша W: glPolygonMode wireframe
+bool g_wireframe       = false;  // клавиша F: glPolygonMode wireframe (W теперь занята скоростью)
+
+// 4-апта: қозғалыс күйі. speed — радиан/СЕКУНД (кадрға емес!)
+const float SPEED_DEFAULT  = 1.5f;
+const float RADIUS_DEFAULT = 0.4f;
+const float SPEED_MIN      = 0.1f;
+const float SPEED_MAX      = 10.0f;
+const float RADIUS_MIN     = 0.0f;
+const float RADIUS_MAX     = 0.6f;   // 0.3 (үшбұрыш жартылай ені) + радиус < 1.0
+float g_speed  = SPEED_DEFAULT;
+float g_radius = RADIUS_DEFAULT;
+float g_angle  = 0.0f;               // орбитадағы бұрыш (радиан)
 
 // ---------------------------------------------------------------------
-//  2-АПТА: шейдеры (пока самые простые, в 3-й неделе улучшим)
+//  4-АПТА: шейдерлер (uOffset, uScale uniform-дары + түс атрибуты)
 // ---------------------------------------------------------------------
 const char* vertexSrc = R"(
 #version 330 core
 layout (location = 0) in vec3 aPos;
-void main() { gl_Position = vec4(aPos, 1.0); }
+layout (location = 1) in vec3 aColor;
+uniform vec2  uOffset;
+uniform float uScale;
+out vec3 vColor;
+void main() {
+    gl_Position = vec4(aPos.xy * uScale + uOffset, aPos.z, 1.0);
+    vColor = aColor;
+}
 )";
 
-// Цвет теперь задаётся через uniform uColor (заливка и линии рисуются разными цветами)
 const char* fragmentSrc = R"(
 #version 330 core
+in vec3 vColor;
 out vec4 FragColor;
-uniform vec3 uColor;
-void main() { FragColor = vec4(uColor, 1.0); }
+void main() { FragColor = vec4(vColor, 1.0); }
 )";
 
 // ---------------------------------------------------------------------
@@ -61,7 +70,7 @@ void onResize(GLFWwindow*, int width, int height) {
 // ---------------------------------------------------------------------
 //  Пернетақтаны тексеру. Әр кадрда шақырылады.
 // ---------------------------------------------------------------------
-void processInput(GLFWwindow* window) {
+void processInput(GLFWwindow* window, float dt) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
         glfwSetWindowShouldClose(window, true);
     }
@@ -73,32 +82,39 @@ void processInput(GLFWwindow* window) {
     if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) g_lineLoopMode = false;
     if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS) g_lineLoopMode = true;
 
-    // 2-апта, задание 3: W переключает wireframe (по одному нажатию)
-    static bool wWasPressed = false;
-    bool wPressed = glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS;
-    if (wPressed && !wWasPressed) {
+    // 2-апта, задание 3: F переключает wireframe (по одному нажатию)
+    // (раньше была W, но в 4-апта W/S управляют скоростью)
+    static bool fWasPressed = false;
+    bool fPressed = glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS;
+    if (fPressed && !fWasPressed) {
         g_wireframe = !g_wireframe;
         glPolygonMode(GL_FRONT_AND_BACK, g_wireframe ? GL_LINE : GL_FILL);
     }
-    wWasPressed = wPressed;
+    fWasPressed = fPressed;
+
+    // 4-апта, 3-тапсырма: W/S — айналу жылдамдығы.
+    // Жеделдетуге де dt керек: әйтпесе жылдамдықтың өзгеру жылдамдығы FPS-ке тәуелді.
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) g_speed += 2.0f * dt;
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) g_speed -= 2.0f * dt;
+    g_speed = std::fmin(std::fmax(g_speed, SPEED_MIN), SPEED_MAX);   // қосымша: clamp
+
+    // Қосымша: Q/E — орбита радиусы (dt-мен, себебі ол да «бірлік/секунд»)
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) g_radius -= 0.5f * dt;
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) g_radius += 0.5f * dt;
+    g_radius = std::fmin(std::fmax(g_radius, RADIUS_MIN), RADIUS_MAX);
+
+    // Қосымша: R — бәрін бастапқы күйге қайтару
+    if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS) {
+        g_speed  = SPEED_DEFAULT;
+        g_radius = RADIUS_DEFAULT;
+        g_angle  = 0.0f;
+    }
 }
 
 // =====================================================================
 //  MAIN
 // =====================================================================
 int main() {
-
-    // -----------------------------------------------------------------
-    //  0. Спрашиваем число рядов (1 - обычный треугольник, 2 - два ряда, ...)
-    // -----------------------------------------------------------------
-    while (true) {
-        std::cout << "Сколько рядов треугольников (1-" << MAX_ROWS << ")? ";
-        if (std::cin >> ROWS && ROWS >= 1 && ROWS <= MAX_ROWS) break;
-        if (std::cin.eof()) return -1;          // ввод закрыт (Ctrl+D)
-        std::cin.clear();                        // сбросить ошибку ввода
-        std::cin.ignore(10000, '\n');            // выбросить неверную строку
-        std::cout << "Введите целое число от 1 до " << MAX_ROWS << ".\n";
-    }
 
     // -----------------------------------------------------------------
     //  1. GLFW-ны іске қосу
@@ -146,49 +162,45 @@ int main() {
     std::cout << "OpenGL: " << glGetString(GL_VERSION) << "\n";
     std::cout << "GPU:    " << glGetString(GL_RENDERER) << "\n";
     std::cout << "Управление: 1 - GL_TRIANGLES, 2 - GL_LINE_LOOP, "
-                 "W - wireframe, Пробел - белый фон, Esc - выход\n";
+                 "F - wireframe, Пробел - белый фон, Esc - выход\n"
+                 "W/S - скорость, Q/E - радиус орбиты, R - сброс\n";
 
 
     // === 2-АПТА: үшбұрыштың деректері мен буферлері ===
 
-    // Вершинные данные в NDC (-1 .. 1). Строим сетку точек P(i, j):
-    // ряд i = 0..ROWS (сверху вниз), в ряду i есть i+1 точек (j = 0..i).
-    // Размеры подобраны так, чтобы треугольник был равносторонним в окне 1280x720.
-    const float topY = 0.8f, botY = -0.8f, halfW = 0.52f;
-    auto P = [&](int i, int j, std::vector<float>& out) {
-        out.push_back(-halfW * i / ROWS + j * (2.0f * halfW / ROWS));
-        out.push_back(topY - i * (topY - botY) / ROWS);
-        out.push_back(0.0f);
+    // Вершинные данные в NDC (-1 .. 1): x y z  r g b.
+    // 2-апта, задание 1: два треугольника в одном массиве (6 вершин).
+    // 4-апта: фигура компактная и стоит вокруг центра, чтобы орбита
+    // (радиус до 0.6) + размер (макс. 0.3 * uScale 1.0) не вылезала за экран.
+    float vertices[] = {
+        // первый треугольник (слева от центра)
+        -0.30f, -0.20f, 0.0f,   0.1f, 0.9f, 0.7f,
+        -0.05f, -0.20f, 0.0f,   0.1f, 0.7f, 0.9f,
+        -0.175f, 0.20f, 0.0f,   0.3f, 1.0f, 0.5f,
+        // второй треугольник (справа от центра)
+         0.05f, -0.20f, 0.0f,   1.0f, 0.6f, 0.2f,
+         0.30f, -0.20f, 0.0f,   1.0f, 0.3f, 0.5f,
+         0.175f, 0.20f, 0.0f,   1.0f, 0.9f, 0.3f
     };
+    const int vertexCount   = 6;
+    const int triangleCount = vertexCount / 3;
 
-    std::vector<float> fillVerts;   // только закрашенные (верхние) треугольники
-    std::vector<float> lineVerts;   // все треугольники - для линий сетки
-    for (int r = 0; r < ROWS; ++r) {
-        for (int j = 0; j <= r; ++j) {           // вершиной вверх
-            P(r, j, fillVerts);  P(r + 1, j, fillVerts);  P(r + 1, j + 1, fillVerts);
-            P(r, j, lineVerts);  P(r + 1, j, lineVerts);  P(r + 1, j + 1, lineVerts);
-        }
-        for (int j = 0; j < r; ++j) {            // перевёрнутые (не закрашиваем)
-            P(r, j, lineVerts);  P(r, j + 1, lineVerts);  P(r + 1, j + 1, lineVerts);
-        }
-    }
-    const int fillCount = (int)fillVerts.size() / 3;   // 15 треугольников * 3
-    const int lineCount = (int)lineVerts.size() / 3;   // 25 треугольников * 3
+    unsigned int vao, vbo;
+    glGenVertexArrays(1, &vao);
+    glGenBuffers(1, &vbo);
 
-    // Два набора VAO/VBO: [0] - заливка, [1] - линии
-    unsigned int vao[2], vbo[2];
-    glGenVertexArrays(2, vao);
-    glGenBuffers(2, vbo);
-    std::vector<float>* data[2] = { &fillVerts, &lineVerts };
-    for (int k = 0; k < 2; ++k) {
-        glBindVertexArray(vao[k]);
-        glBindBuffer(GL_ARRAY_BUFFER, vbo[k]);
-        glBufferData(GL_ARRAY_BUFFER, data[k]->size() * sizeof(float),
-                     data[k]->data(), GL_STATIC_DRAW);
-        // location=0, 3 float, нормаланбаған, қадам 3 float, ығысу 0
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(0);
-    }
+    glBindVertexArray(vao);                                  // VAO байлаймыз
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);                      // VBO байлаймыз
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices),          // деректі GPU-ға
+                 vertices, GL_STATIC_DRAW);
+
+    // location=0: позиция (3 float), қадам 6 float, ығысу 0
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    // location=1: түс (3 float), қадам 6 float, ығысу 3 float
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
     glBindVertexArray(0);
 
     // === 3-АПТА: (уақытша) шейдерлер компиляциясы ===
@@ -207,7 +219,12 @@ int main() {
     glLinkProgram(shader);
     glDeleteShader(vs);
     glDeleteShader(fs);
-    int colorLoc = glGetUniformLocation(shader, "uColor");
+
+    // === 4-АПТА: uniform орындарын цикл алдында БІР рет табамыз ===
+    int locOffset = glGetUniformLocation(shader, "uOffset");
+    int locScale  = glGetUniformLocation(shader, "uScale");
+    float lastFrame = (float)glfwGetTime();   // НАЗАР: нөл емес, әйтпесе 1-кадрда dt өте үлкен
+    // g_angle, g_speed — жаһандық (processInput-тан R/W/S басқарады)
 
 
     // -----------------------------------------------------------------
@@ -219,7 +236,14 @@ int main() {
 
     while (!glfwWindowShouldClose(window)) {
 
-        processInput(window);   // проверка клавиш ДО glClear (1-апта, задание 3)
+        // 4-апта: delta time — алдыңғы кадрдан бергі уақыт (секунд)
+        float frameNow = (float)glfwGetTime();
+        float dt = frameNow - lastFrame;
+        lastFrame = frameNow;
+
+        processInput(window, dt);   // проверка клавиш ДО glClear (1-апта, задание 3)
+
+        g_angle += g_speed * dt;    // радиан/сек * сек = радиан (кадр жиілігінен тәуелсіз)
 
         // --- Экранды тазалау ---
         float t = (float)glfwGetTime();
@@ -232,23 +256,20 @@ int main() {
         glClear(GL_COLOR_BUFFER_BIT);
 
         // === 2-АПТА: сызу командасы ===
-        glUseProgram(shader);
-
-        // 1) заливка закрашенных треугольников
-        glUniform3f(colorLoc, FILL_COLOR[0], FILL_COLOR[1], FILL_COLOR[2]);
-        glBindVertexArray(vao[0]);
+        glUseProgram(shader);   // МІНДЕТТІ, әрі БІРІНШІ: uniform орнатудан бұрын
+        glUniform2f(locOffset, std::cos(g_angle) * g_radius, std::sin(g_angle) * g_radius);
+        // Пульсация: sin (-1..1) -> (0..1) -> 0.5..1.0
+        float scale = 0.75f + 0.25f * std::sin(t * 3.0f);
+        glUniform1f(locScale, scale);
+        glBindVertexArray(vao);
         if (g_lineLoopMode) {
-            for (int i = 0; i < fillCount / 3; ++i)
+            // GL_LINE_LOOP замыкает ВСЕ вершины в один контур, поэтому
+            // рисуем каждый треугольник отдельным вызовом (по 3 вершины).
+            for (int i = 0; i < triangleCount; ++i)
                 glDrawArrays(GL_LINE_LOOP, i * 3, 3);
         } else {
-            glDrawArrays(GL_TRIANGLES, 0, fillCount);
+            glDrawArrays(GL_TRIANGLES, 0, vertexCount);
         }
-
-        // 2) линии сетки поверх (контур каждого из 25 треугольников)
-        glUniform3f(colorLoc, LINE_COLOR[0], LINE_COLOR[1], LINE_COLOR[2]);
-        glBindVertexArray(vao[1]);
-        for (int i = 0; i < lineCount / 3; ++i)
-            glDrawArrays(GL_LINE_LOOP, i * 3, 3);
 
         glfwSwapBuffers(window);   // дайын кадрды экранға шығару
         glfwPollEvents();          // пернетақта/тінтуір оқиғаларын өңдеу
@@ -267,8 +288,8 @@ int main() {
     //  5. Тазалау
     // -----------------------------------------------------------------
     // === 2-АПТА: буферлер өшіріледі ===
-    glDeleteVertexArrays(2, vao);
-    glDeleteBuffers(2, vbo);
+    glDeleteVertexArrays(1, &vao);
+    glDeleteBuffers(1, &vbo);
     glDeleteProgram(shader);
 
     glfwTerminate();

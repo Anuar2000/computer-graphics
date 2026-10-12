@@ -22,7 +22,7 @@ VS-те: **File → Open → Folder** → `C:\dev\cg-course` → F5.
 ```
 cmake -B build
 cmake --build build --config Debug
-build\bin\Debug\cg.exe
+build\bin\Debug\cg_week05.exe
 ```
 
 ---
@@ -67,7 +67,7 @@ brew install cmake git
 ```bash
 cmake -B build
 cmake --build build
-./build/bin/cg
+./build/bin/cg_week05
 ```
 
 Консольде OpenGL нұсқасы мен видеокарта аты шығуы керек.

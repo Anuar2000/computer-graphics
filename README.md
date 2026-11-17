@@ -13,12 +13,13 @@ OpenGL 3.3 Core · C++17 · GLFW · GLAD
 | 4 | Uniform, уақыт, delta time | [`week04/`](week04) | `cg_week04` |
 | 5 | Индекс буфері (EBO), примитив түрлері | [`week05/`](week05) | `cg_week05` |
 | 6 | Түрлендіру матрицалары (GLM: translate, rotate, scale) | [`week06/`](week06) | `cg_week06` |
+| 7 | Координаттар кеңістіктері, MVP, проекция (куб) | [`week07/`](week07) | `cg_week07` |
 
 ## Құрылым
 
 ```
 computer-graphics/
-├── week01/ … week06/     әр аптаның коды, README және screenshots/
+├── week01/ … week07/     әр аптаның коды, README және screenshots/
 ├── docs/SETUP.md         ортаны баптау (Windows / Linux / macOS)
 ├── external/             glad, stb (GLFW мен GLM-ді CMake өзі жүктейді)
 ├── assets/               текстуралар (11-аптадан бастап)
@@ -41,4 +42,4 @@ Linux / macOS:
 ```
 
 Windows (Visual Studio): `build\bin\Debug\cg_week03.exe`, немесе VS-те
-**File → Open → Folder**, жоғарғы тізімнен керек аптаны (`cg_week01` … `cg_week06`) таңдап, F5.
+**File → Open → Folder**, жоғарғы тізімнен керек аптаны (`cg_week01` … `cg_week07`) таңдап, F5.

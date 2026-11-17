@@ -16,12 +16,13 @@ OpenGL 3.3 Core · C++17 · GLFW · GLAD
 | 7 | Координаттар кеңістіктері, MVP, проекция (куб) | [`week07/`](week07) | `cg_week07` |
 | 8 | Тереңдік буфері, back-face culling, бірнеше объект | [`week08/`](week08) | `cg_week08` |
 | 9 | Камера моделі, LookAt, WASD | [`week09/`](week09) | `cg_week09` |
+| 10 | Тінтуірмен еркін камера (yaw, pitch), fov зум | [`week10/`](week10) | `cg_week10` |
 
 ## Құрылым
 
 ```
 computer-graphics/
-├── week01/ … week09/     әр аптаның коды, README және screenshots/
+├── week01/ … week10/     әр аптаның коды, README және screenshots/
 ├── docs/SETUP.md         ортаны баптау (Windows / Linux / macOS)
 ├── external/             glad, stb (GLFW мен GLM-ді CMake өзі жүктейді)
 ├── assets/               текстуралар (11-аптадан бастап)
@@ -44,4 +45,4 @@ Linux / macOS:
 ```
 
 Windows (Visual Studio): `build\bin\Debug\cg_week03.exe`, немесе VS-те
-**File → Open → Folder**, жоғарғы тізімнен керек аптаны (`cg_week01` … `cg_week09`) таңдап, F5.
+**File → Open → Folder**, жоғарғы тізімнен керек аптаны (`cg_week01` … `cg_week10`) таңдап, F5.

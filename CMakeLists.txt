@@ -4,7 +4,7 @@ project(cg LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT cg_week11)
+set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT cg_week12)
 
 # --- GLFW және GLM: CMake оларды GitHub-тан өзі жүктейді ---
 include(FetchContent)
@@ -27,8 +27,8 @@ find_package(OpenGL REQUIRED)
 
 # --- Әр апта — бөлек бағдарлама: week01/main.cpp -> cg_week01 ---
 #   cmake -B build && cmake --build build
-#   ./build/bin/cg_week01 ... ./build/bin/cg_week11
-foreach(WEEK week01 week02 week03 week04 week05 week06 week07 week08 week09 week10 week11)
+#   ./build/bin/cg_week01 ... ./build/bin/cg_week12
+foreach(WEEK week01 week02 week03 week04 week05 week06 week07 week08 week09 week10 week11 week12)
     add_executable(cg_${WEEK}
         ${WEEK}/main.cpp
         external/glad/src/gl.c

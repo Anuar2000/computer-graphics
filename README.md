@@ -18,12 +18,13 @@ OpenGL 3.3 Core · C++17 · GLFW · GLAD
 | 9 | Камера моделі, LookAt, WASD | [`week09/`](week09) | `cg_week09` |
 | 10 | Тінтуірмен еркін камера (yaw, pitch), fov зум | [`week10/`](week10) | `cg_week10` |
 | 11 | Текстуралар: stb_image, UV, wrapping, фильтрлеу, mipmap | [`week11/`](week11) | `cg_week11` |
+| 12 | Бірнеше текстура, текстуралық блоктар, mix() | [`week12/`](week12) | `cg_week12` |
 
 ## Құрылым
 
 ```
 computer-graphics/
-├── week01/ … week11/     әр аптаның коды, README және screenshots/
+├── week01/ … week12/     әр аптаның коды, README және screenshots/
 ├── docs/SETUP.md         ортаны баптау (Windows / Linux / macOS)
 ├── external/             glad, stb (GLFW мен GLM-ді CMake өзі жүктейді)
 ├── assets/               текстуралар (11-аптадан бастап)
@@ -46,4 +47,4 @@ Linux / macOS:
 ```
 
 Windows (Visual Studio): `build\bin\Debug\cg_week03.exe`, немесе VS-те
-**File → Open → Folder**, жоғарғы тізімнен керек аптаны (`cg_week01` … `cg_week11`) таңдап, F5.
+**File → Open → Folder**, жоғарғы тізімнен керек аптаны (`cg_week01` … `cg_week12`) таңдап, F5.
